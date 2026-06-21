@@ -10,8 +10,8 @@ import pandas as pd
 import io
 import gc
 
-st.set_page_config(page_title="Sonic Signatures", layout="wide")
-st.title("🎵 Sonic Signatures: The Audio Detective")
+st.set_page_config(page_title="Sound Sniff", layout="wide")
+st.title("🎵 Sound Sniff: The Audio Detective")
 
 @st.cache_data
 def load_database():
