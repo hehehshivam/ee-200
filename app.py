@@ -8,6 +8,7 @@ from collections import defaultdict
 import pickle
 import pandas as pd
 import io
+import gc
 
 st.set_page_config(page_title="Sonic Signatures", layout="wide")
 st.title("🎵 Sonic Signatures: The Audio Detective")
@@ -23,6 +24,8 @@ st.sidebar.success(f"✅ Database loaded! ({len(db)} unique hashes)")
 def get_peaks_and_hashes(y, sr, hop_length=512, threshold=-40, fan_value=5):
     D          = librosa.stft(y, hop_length=hop_length)
     S_db       = librosa.amplitude_to_db(np.abs(D), ref=np.max)
+    del D
+    gc.collect()
     local_max  = maximum_filter(S_db, size=20) == S_db
     peaks      = local_max & (S_db > threshold)
     peak_freqs, peak_times = np.where(peaks)
@@ -54,14 +57,23 @@ tab1, tab2 = st.tabs(["🎵 Single-Clip Mode", "📂 Batch Mode"])
 
 with tab1:
     st.header("Identify a Single Clip")
-    uploaded = st.file_uploader("Upload a clip (.mp3 or .wav)", type=["mp3","wav"])
+    uploaded = st.file_uploader("Upload a clip (.mp3 or .wav)",
+                                 type=["mp3","wav"])
     if uploaded:
         st.audio(uploaded)
         with st.spinner("Fingerprinting audio..."):
-            y, sr = librosa.load(io.BytesIO(uploaded.read()), sr=22050)
+            # Load at lower sample rate to save memory
+            y, sr = librosa.load(io.BytesIO(uploaded.read()),
+                                  sr=11025,       # reduced from 22050
+                                  mono=True,
+                                  duration=60)    # max 60 seconds
+            gc.collect()
             S_db, peak_freqs, peak_times, q_hashes = get_peaks_and_hashes(y, sr)
             predicted, best_offset, all_offsets    = match_song(q_hashes, db)
+            gc.collect()
+
         st.success(f"🎶 Matched Song: **{predicted}**")
+
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Spectrogram + Constellation")
@@ -72,18 +84,24 @@ with tab1:
             freq_res = sr / 2048
             ax.scatter(peak_times * 512/sr, peak_freqs * freq_res,
                        color="red", s=8, label="Peaks")
-            ax.set_ylim(0, 8000)
+            ax.set_ylim(0, 4000)
             ax.legend(fontsize=8)
             st.pyplot(fig)
+            plt.close()
+            gc.collect()
+
         with col2:
             st.subheader("Offset Histogram")
             if all_offsets:
                 fig2, ax2 = plt.subplots(figsize=(8, 4))
-                ax2.hist(all_offsets, bins=50, color="coral", edgecolor="black")
+                ax2.hist(all_offsets, bins=50,
+                         color="coral", edgecolor="black")
                 ax2.set_xlabel("Time Offset (frames)")
                 ax2.set_ylabel("Matching Hash Count")
                 ax2.set_title(f"Alignment: {predicted}")
                 st.pyplot(fig2)
+                plt.close()
+                gc.collect()
 
 with tab2:
     st.header("Batch Processing")
@@ -94,11 +112,17 @@ with tab2:
         results = []
         bar = st.progress(0)
         for i, clip in enumerate(batch):
-            y, sr = librosa.load(io.BytesIO(clip.read()), sr=22050)
+            y, sr = librosa.load(io.BytesIO(clip.read()),
+                                  sr=11025,
+                                  mono=True,
+                                  duration=60)
             _, _, _, q_hashes = get_peaks_and_hashes(y, sr)
             pred, *_ = match_song(q_hashes, db)
-            results.append({"filename": clip.name, "prediction": pred})
+            results.append({"filename": clip.name,
+                            "prediction": pred})
             bar.progress((i+1)/len(batch))
+            gc.collect()
+
         df = pd.DataFrame(results)
         st.dataframe(df)
         st.download_button("⬇️ Download results.csv",
