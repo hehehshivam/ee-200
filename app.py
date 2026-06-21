@@ -21,7 +21,7 @@ def load_database():
 db = load_database()
 st.sidebar.success(f"✅ Database loaded! ({len(db)} unique hashes)")
 
-def get_peaks_and_hashes(y, sr, hop_length=512, threshold=-40, fan_value=5):
+def get_peaks_and_hashes(y, sr, hop_length=512, threshold=-20, fan_value=5):
     D          = librosa.stft(y, hop_length=hop_length)
     S_db       = librosa.amplitude_to_db(np.abs(D), ref=np.max)
     del D
@@ -64,7 +64,7 @@ with tab1:
         with st.spinner("Fingerprinting audio..."):
             # Load at lower sample rate to save memory
             y, sr = librosa.load(io.BytesIO(uploaded.read()),
-                                  sr=11025,       # reduced from 22050
+                                  sr=22050,       # reduced from 22050
                                   mono=True,
                                   duration=60)    # max 60 seconds
             gc.collect()
@@ -113,7 +113,7 @@ with tab2:
         bar = st.progress(0)
         for i, clip in enumerate(batch):
             y, sr = librosa.load(io.BytesIO(clip.read()),
-                                  sr=11025,
+                                  sr=22050,
                                   mono=True,
                                   duration=60)
             _, _, _, q_hashes = get_peaks_and_hashes(y, sr)
