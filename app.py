@@ -8,24 +8,14 @@ from collections import defaultdict
 import pickle
 import pandas as pd
 import io
-import os
-import glob
 
 st.set_page_config(page_title="Sonic Signatures", layout="wide")
 st.title("🎵 Sonic Signatures: The Audio Detective")
 
 @st.cache_data
 def load_database():
-    chunk_files = sorted(glob.glob("db_chunk_*.pkl"))
-    if chunk_files:
-        assembled = b""
-        for chunk_file in chunk_files:
-            with open(chunk_file, "rb") as f:
-                assembled += f.read()
-        return pickle.loads(assembled)
-    else:
-        with open("song_database.pkl", "rb") as f:
-            return pickle.load(f)
+    with open("song_database_small.pkl", "rb") as f:
+        return pickle.load(f)
 
 db = load_database()
 st.sidebar.success(f"✅ Database loaded! ({len(db)} unique hashes)")
